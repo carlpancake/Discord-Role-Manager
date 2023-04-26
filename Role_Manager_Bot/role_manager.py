@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 # Google Docs/Sheets API Imports
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 # Assistance Files Imports
 from media import *
@@ -13,15 +13,16 @@ from request_data import *
 
 """ Google API Initializations """
 SCOPES = link("SCOPE")
-CREDENTIALS = ServiceAccountCredentials.from_json_keyfile_name(path.join(sys.path[0], "credentials.json"), SCOPES)
+CREDENTIALS = Credentials.from_service_account_file(path.join(sys.path[0], "credentials.json"), scopes=SCOPES)
 CLIENT = gspread.authorize(CREDENTIALS)
 SERVICE = build("sheets", "v4", credentials=CREDENTIALS)
 
 """ Discord API Initializations """
-BOT = commands.Bot(command_prefix='!')
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix='!',intents=intents)
 
 
-@BOT.event
+@bot.event
 async def on_ready():
     print("BOT is ready and running!")
 
@@ -31,7 +32,7 @@ async def on_ready():
 This command sends an embed with direct instructions on how
 to get the Role Manager Bot set up and running on a server.
 """
-@BOT.command()
+@bot.command()
 @commands.has_permissions(administrator=True)
 async def setuphelp(ctx):
     embed = discord.Embed(title="Role Manager Setup Tutorial", description="Click the link above for detailed instructions with pictures!", url=link("TUTORIAL"),  color=color("GREEN"))
@@ -51,14 +52,14 @@ This command creates a file for the server in the database (serverdata)
 and stores the Google Worksheet ID inside a .txt file named after the server's ID.
 If a file already exists, it prompts the user to update the file instead of reconfiguring it.
 """
-@BOT.command()
+@bot.command()
 @commands.has_permissions(administrator=True)
 async def configure(ctx, *, spreadsheet_id=None):
     if len(spreadsheet_id) == 44:  # Ensure input was given and that it is valid.
         if ctx.message.author.id == ctx.guild.owner_id:  # If the sender is the server owner, proceed.
             file_name = str(ctx.guild.id) + ".txt"  # The name of the file is that of the server's unique ID.
             try:  # If the file exists, open and read it and give the link.
-                with open(path.join("serverdata", file_name), "r+") as server_file:
+               with open(path.join(sys.path[0] + r"/serverdata", file_name), "r+") as server_file:
                     server_file.truncate(0)
                     server_file.write(spreadsheet_id)
 
@@ -67,7 +68,7 @@ async def configure(ctx, *, spreadsheet_id=None):
                     embed.set_thumbnail(url=picture("GSHEET"))
                     await ctx.send(embed=embed)
             except FileNotFoundError:  # If it doesn't, create it and give the complete link.
-                with open(path.join("serverdata", file_name), "w+") as server_file:
+                with open(path.join(sys.path[0] + r"/serverdata", file_name), "w+") as server_file:
                     server_file.write(spreadsheet_id)
 
                 embed = discord.Embed(title="Worksheet Configuration Complete!", description="Your server has been added to the database.", color=color("GREEN"))
@@ -97,17 +98,17 @@ This command exports all the roles and their permissions
 from the Discord Server, organizes them and imports them 
 to the Google Sheet assigned to that Discord Server.
 """
-@BOT.command()
+@bot.command()
 @commands.has_permissions(administrator=True)
 async def export(ctx):
     if ctx.message.author.id == ctx.guild.owner_id:
         file_name = str(ctx.guild.id) + ".txt"
         try:
-            with open(path.join("serverdata", file_name), "r+") as server_file:
+            with open(path.join(sys.path[0] + r"/serverdata", file_name), "r+") as server_file:
                 spreadsheet_id = server_file.read()
                 try:
                     role_list = ctx.guild.roles  # Export all the roles from a server. List of role type Objects.
-                    role_list.reverse()
+                    # role_list.reverse()
                     role_names = [role.name for role in role_list]  # Get all the role names from the role Objects.
                     role_permissions = {role: dict(role.permissions) for role in role_list}  # Put Roles in a dictionary and their permission_values in sub-dictionaries.
                     permission_names = list(role_permissions[role_list[0]].keys())  # Get all the permission names.
@@ -145,4 +146,4 @@ async def export(ctx):
 BOT RUN Command that logs in the bot with our credentials. 
 Has to be in the end of the file.
 """
-BOT.run('BOT_TOKEN_HERE')
+BOT.run('BOT_TOKEN_HERE') # Enter your Discord Bot Token here.
